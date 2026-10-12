@@ -1,11 +1,9 @@
 {
-  "id": "remotely-save",
-  "name": "Remotely Save",
-  "version": "0.5.25",
+  "id": "sync-auto-save",
+  "name": "sync-auto-save",
+  "version": "0.1.0",
   "minAppVersion": "0.13.21",
-  "description": "Yet another unofficial plugin allowing users to synchronize notes between local device and the cloud service.",
-  "author": "fyears",
-  "authorUrl": "https://github.com/fyears",
-  "isDesktopOnly": false,
-  "fundingUrl": "https://remotelysave.com"
+  "description": "Sync notes automatically on create, modify, delete and rename. Based on Remotely Save.",
+  "author": "zhoul (based on Remotely Save by fyears)",
+  "isDesktopOnly": false
 }

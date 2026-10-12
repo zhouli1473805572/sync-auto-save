@@ -1,7 +1,6 @@
 // biome-ignore lint/suspicious/noShadowRestrictedNames: <explanation>
 import AggregateError from "aggregate-error";
 import cloneDeep from "lodash/cloneDeep";
-import throttle from "lodash/throttle";
 import { FileText, RefreshCcw, RotateCcw, createElement } from "lucide";
 import {
   Events,
@@ -74,6 +73,7 @@ import {
   COMMAND_URI,
 } from "./baseTypes";
 import { API_VER_ENSURE_REQURL_OK } from "./baseTypesObs";
+import { AutoSyncScheduler, getAutoSyncTiming } from "./autoSyncScheduler";
 import { messyConfigToNormal, normalConfigToMessy } from "./configPersist";
 import { exportVaultSyncPlansToFiles } from "./debugMode";
 import {
@@ -132,6 +132,8 @@ const DEFAULT_SETTINGS: RemotelySavePluginSettings = {
   autoRunEveryMilliseconds: -1,
   initRunAfterMilliseconds: -1,
   syncOnSaveAfterMilliseconds: -1,
+  syncOnSaveDelayMilliseconds: 3000,
+  syncOnSaveMinIntervalMilliseconds: 10000,
   agreeToUploadExtraMetadata: true, // as of 20240106, it's safe to assume every new user agrees with this
   concurrency: 5,
   syncConfigDir: false,
@@ -164,9 +166,9 @@ interface OAuth2Info {
   revokeAuthSetting?: Setting;
 }
 
-const iconNameSyncWait = `remotely-save-sync-wait`;
-const iconNameSyncRunning = `remotely-save-sync-running`;
-const iconNameLogs = `remotely-save-logs`;
+const iconNameSyncWait = `sync-auto-save-sync-wait`;
+const iconNameSyncRunning = `sync-auto-save-sync-running`;
+const iconNameLogs = `sync-auto-save-logs`;
 
 const getIconSvg = () => {
   const iconSvgSyncWait = createElement(RotateCcw);
@@ -217,7 +219,7 @@ export default class RemotelySavePlugin extends Plugin {
   settings!: RemotelySavePluginSettings;
   db!: InternalDBs;
   isSyncing!: boolean;
-  hasPendingSyncOnSave!: boolean;
+  private autoSyncScheduler?: AutoSyncScheduler;
   statusBarElement!: HTMLSpanElement;
   oauth2Info!: OAuth2Info;
   currLogLevel!: string;
@@ -532,7 +534,6 @@ export default class RemotelySavePlugin extends Plugin {
 
     this.currSyncMsg = "";
     this.isSyncing = false;
-    this.hasPendingSyncOnSave = false;
 
     this.syncEvent = new Events();
 
@@ -1318,6 +1319,8 @@ export default class RemotelySavePlugin extends Plugin {
 
   async onunload() {
     console.info(`unloading plugin ${this.manifest.id}`);
+    this.autoSyncScheduler?.dispose();
+    this.autoSyncScheduler = undefined;
     this.syncRibbon = undefined;
     if (this.appContainerObserver !== undefined) {
       this.appContainerObserver.disconnect();
@@ -1784,92 +1787,54 @@ export default class RemotelySavePlugin extends Plugin {
     }
   }
 
-  async _checkCurrFileModified(caller: "SYNC" | "FILE_CHANGES") {
-    console.debug(`inside checkCurrFileModified`);
-    const currentFile = this.app.workspace.getActiveFile();
-
-    if (currentFile) {
-      console.debug(`we have currentFile=${currentFile.path}`);
-      // get the last modified time of the current file
-      // if it has modified after lastSuccessSync
-      // then schedule a run for syncOnSaveAfterMilliseconds after it was modified
-      const lastModified = currentFile.stat.mtime;
-      const lastSuccessSyncMillis = await getLastSuccessSyncTimeByVault(
-        this.db,
-        this.vaultRandomID
-      );
-
-      console.debug(
-        `lastModified=${lastModified}, lastSuccessSyncMillis=${lastSuccessSyncMillis}`
-      );
-
-      if (
-        caller === "SYNC" ||
-        (caller === "FILE_CHANGES" &&
-          lastModified > (lastSuccessSyncMillis ?? 1))
-      ) {
-        console.debug(
-          `so lastModified > lastSuccessSyncMillis or it's called while syncing before`
-        );
-        console.debug(
-          `caller=${caller}, isSyncing=${this.isSyncing}, hasPendingSyncOnSave=${this.hasPendingSyncOnSave}`
-        );
-        if (this.isSyncing) {
-          this.hasPendingSyncOnSave = true;
-          // wait for next event
-          return;
-        } else {
-          if (this.hasPendingSyncOnSave || caller === "FILE_CHANGES") {
-            this.hasPendingSyncOnSave = false;
-            await this.syncRun("auto_sync_on_save");
-          }
-          return;
-        }
-      }
-    } else {
-      console.debug(`no currentFile here`);
-    }
-  }
-
   _syncOnSaveEvent1 = () => {
-    this._checkCurrFileModified("SYNC");
+    this.autoSyncScheduler?.notifySyncDone();
   };
 
-  _syncOnSaveEvent2 = throttle(
-    async () => {
-      await this._checkCurrFileModified("FILE_CHANGES");
-    },
-    1000 * 3,
-    {
-      leading: false,
-      trailing: true,
-    }
-  );
+  _syncOnSaveEvent2 = () => {
+    this.autoSyncScheduler?.notifyChange();
+  };
+
+  updateSyncOnSaveTiming() {
+    this.autoSyncScheduler?.updateTiming(getAutoSyncTiming(this.settings));
+  }
 
   toggleSyncOnSaveIfSet() {
+    // Replacing the scheduler cancels queued work and prevents duplicate listeners
+    // when this setting is changed repeatedly or before layout initialization.
+    this.autoSyncScheduler?.dispose();
+    this.autoSyncScheduler = undefined;
+    this.syncEvent?.off("SYNC_DONE", this._syncOnSaveEvent1);
+    this.app.vault.off("modify", this._syncOnSaveEvent2);
+    this.app.vault.off("create", this._syncOnSaveEvent2);
+    this.app.vault.off("delete", this._syncOnSaveEvent2);
+    this.app.vault.off("rename", this._syncOnSaveEvent2);
     if (
       this.settings.syncOnSaveAfterMilliseconds !== undefined &&
       this.settings.syncOnSaveAfterMilliseconds !== null &&
       this.settings.syncOnSaveAfterMilliseconds > 0
     ) {
+      const scheduler = new AutoSyncScheduler({
+        ...getAutoSyncTiming(this.settings),
+        isSyncing: () => this.isSyncing,
+        sync: () => this.syncRun("auto_sync_on_save"),
+        onError: (error) =>
+          console.error("sync-auto-save: automatic sync failed", error),
+      });
+      this.autoSyncScheduler = scheduler;
       this.app.workspace.onLayoutReady(() => {
+        if (this.autoSyncScheduler !== scheduler) return;
         // listen to sync done
         this.registerEvent(
           this.syncEvent?.on("SYNC_DONE", this._syncOnSaveEvent1)!
         );
 
-        // listen to current file save changes
+        // Listen to changes throughout the vault, including deleted files/folders.
         this.registerEvent(this.app.vault.on("modify", this._syncOnSaveEvent2));
         this.registerEvent(this.app.vault.on("create", this._syncOnSaveEvent2));
         this.registerEvent(this.app.vault.on("delete", this._syncOnSaveEvent2));
         this.registerEvent(this.app.vault.on("rename", this._syncOnSaveEvent2));
       });
-    } else {
-      this.syncEvent?.off("SYNC_DONE", this._syncOnSaveEvent1);
-      this.app.vault.off("modify", this._syncOnSaveEvent2);
-      this.app.vault.off("create", this._syncOnSaveEvent2);
-      this.app.vault.off("delete", this._syncOnSaveEvent2);
-      this.app.vault.off("rename", this._syncOnSaveEvent2);
     }
   }
 

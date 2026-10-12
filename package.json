@@ -1,7 +1,7 @@
 {
-  "name": "remotely-save",
-  "version": "0.5.25",
-  "description": "This is yet another sync plugin for Obsidian app.",
+  "name": "sync-auto-save",
+  "version": "0.1.0",
+  "description": "Automatic Obsidian sync on create, modify, delete and rename, based on Remotely Save.",
   "scripts": {
     "dev2": "node esbuild.config.mjs --watch",
     "build2": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
@@ -9,7 +9,7 @@
     "dev": "webpack --mode development --watch",
     "format": "npx @biomejs/biome check --write .",
     "clean": "npx rimraf main.js",
-    "test": "mocha --import=tsx 'tests/**/*.ts' 'pro/tests/**/*.ts'"
+    "test": "mocha --import=tsx \"tests/**/*.ts\" \"pro/tests/**/*.ts\""
   },
   "browser": {
     "path": "path-browserify",
@@ -24,6 +24,9 @@
   "keywords": [],
   "author": "",
   "license": "SEE LICENSE IN LICENSE",
+  "overrides": {
+    "clean-stack": "5.2.0"
+  },
   "devDependencies": {
     "@biomejs/biome": "1.8.3",
     "@microsoft/microsoft-graph-types": "^2.40.0",
@@ -34,7 +37,7 @@
     "@types/mime-types": "^2.1.4",
     "@types/mocha": "^10.0.7",
     "@types/mustache": "^4.2.5",
-    "@types/node": "^20.14.12",
+    "@types/node": "20.14.12",
     "@types/qrcode": "^1.5.5",
     "builtin-modules": "^4.0.0",
     "cross-env": "^7.0.3",
@@ -46,10 +49,11 @@
     "npm-check-updates": "^16.14.20",
     "obsidian": "^1.5.7",
     "openapi-typescript": "^7.1.0",
+    "terser-webpack-plugin": "5.3.14",
     "ts-loader": "^9.5.1",
     "tslib": "^2.6.3",
     "tsx": "^4.16.2",
-    "typescript": "^5.5.4",
+    "typescript": "5.5.4",
     "webdav-server": "^2.6.2",
     "webpack": "^5.93.0",
     "webpack-cli": "^5.1.4",
@@ -87,7 +91,7 @@
     "mime-types": "^2.1.35",
     "mustache": "^4.2.0",
     "nanoid": "^5.0.7",
-    "node-diff3": "^3.1.2",
+    "node-diff3": "3.1.2",
     "openapi-fetch": "^0.10.2",
     "p-queue": "^8.0.1",
     "path-browserify": "^1.0.1",

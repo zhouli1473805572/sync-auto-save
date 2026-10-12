@@ -1,4 +1,29 @@
-# Remotely Save
+# sync-auto-save
+
+基于 Remotely Save 0.5.25 的独立插件。插件 ID、设置文件、协议处理器和本地数据库均独立。
+
+## 本项目的修改
+
+- 文件或文件夹新增、修改、删除、重命名后自动同步，不再依赖当前打开笔记的修改时间。
+- 按配置中的等待时间合并连续事件，并按节流时间限制同步频率；同步期间发生的变化会排队。
+- 关闭自动同步或卸载插件时取消等待中的任务，重复切换设置不会重复注册监听。
+- 首次启用时，从同一 Obsidian 环境中的 Remotely Save 数据库复制当前笔记库的同步基线，之后使用独立数据库。仅复制 `data.json` 到另一台设备不会带上这些历史记录。
+
+## 本地构建与使用
+
+1. 运行 `npm ci`、`npm test` 和 `npm run build`。
+2. 将 `main.js`、`manifest.json`、`styles.css` 放入笔记库的 `.obsidian/plugins/sync-auto-save/`。
+3. 如需沿用旧配置，将 Remotely Save 的 `data.json` 复制到同一目录。此文件含凭据，已被 Git 忽略。
+4. 在 Obsidian 中关闭 Remotely Save，然后启用 sync-auto-save。两个插件连接同一远端时只启用一个。
+5. 开启“文件变化后同步”后，可设置“保存后等待时间”和“同步节流时间”，默认分别为 3 秒和 10 秒，范围 1–3600 秒，修改后立即生效。先同步一篇临时笔记，再删除它，检查远端是否删除。
+
+自动同步保留原来的同步方向、冲突处理、忽略路径和批量删除保护规则。已有的 S3 配置可直接沿用；OAuth 服务需要为新的回调地址配置自己的应用。
+
+下方保留上游说明和许可证信息。`src/` 等目录采用 Apache 2.0，`pro/` 采用 PolyForm Strict，详见 `LICENSE`。
+
+---
+
+## Remotely Save 上游说明
 
 [English](./README.md) | 中文
 

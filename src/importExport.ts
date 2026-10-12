@@ -85,7 +85,10 @@ export interface ProcessQrCodeResultType {
  * @param input
  */
 export const parseUriByHand = (input: string) => {
-  if (!input.startsWith("obsidian://remotely-save?func=settings&")) {
+  if (
+    !input.startsWith(`obsidian://${COMMAND_URI}?func=settings&`) &&
+    !input.startsWith("obsidian://remotely-save?func=settings&")
+  ) {
     throw Error(`not valid string`);
   }
 

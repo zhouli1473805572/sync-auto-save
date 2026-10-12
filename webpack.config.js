@@ -30,6 +30,9 @@ module.exports = {
     libraryTarget: "commonjs",
   },
   plugins: [
+    // Obsidian loads one CommonJS entry; additional browser chunks cannot be
+    // resolved reliably from the plugin directory, especially on mobile.
+    new webpack.optimize.LimitChunkCountPlugin({ maxChunks: 1 }),
     new webpack.DefinePlugin({
       "global.DEFAULT_DROPBOX_APP_KEY": `"${DEFAULT_DROPBOX_APP_KEY}"`,
       "global.DEFAULT_ONEDRIVE_CLIENT_ID": `"${DEFAULT_ONEDRIVE_CLIENT_ID}"`,

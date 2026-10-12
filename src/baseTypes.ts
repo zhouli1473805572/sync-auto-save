@@ -165,6 +165,8 @@ export interface RemotelySavePluginSettings {
   autoRunEveryMilliseconds?: number;
   initRunAfterMilliseconds?: number;
   syncOnSaveAfterMilliseconds?: number;
+  syncOnSaveDelayMilliseconds?: number;
+  syncOnSaveMinIntervalMilliseconds?: number;
 
   concurrency?: number;
   syncConfigDir?: boolean;
@@ -213,10 +215,10 @@ export interface RemotelySavePluginSettings {
   howToCleanEmptyFolder?: EmptyFolderCleanType;
 }
 
-export const COMMAND_URI = "remotely-save";
-export const COMMAND_CALLBACK = "remotely-save-cb";
-export const COMMAND_CALLBACK_ONEDRIVE = "remotely-save-cb-onedrive";
-export const COMMAND_CALLBACK_DROPBOX = "remotely-save-cb-dropbox";
+export const COMMAND_URI = "sync-auto-save";
+export const COMMAND_CALLBACK = "sync-auto-save-cb";
+export const COMMAND_CALLBACK_ONEDRIVE = "sync-auto-save-cb-onedrive";
+export const COMMAND_CALLBACK_DROPBOX = "sync-auto-save-cb-dropbox";
 
 export interface UriParams {
   func?: string;

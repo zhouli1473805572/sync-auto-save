@@ -1,4 +1,16 @@
-# Remotely Save
+# sync-auto-save
+
+An independent fork of Remotely Save 0.5.25. Automatic sync now responds to vault-wide create, modify, delete and rename events, even when no file is open. Enabling sync on changes reveals configurable wait and throttle intervals (defaults: 3 and 10 seconds; range: 1–3600 seconds). Timing changes apply immediately without dropping queued changes. Pending timers are cancelled when disabled or unloaded.
+
+Build with `npm ci`, `npm test`, and `npm run build`. Install `main.js`, `manifest.json`, and `styles.css` in `.obsidian/plugins/sync-auto-save/`, and copy the old `data.json` there to reuse settings. Disable Remotely Save before enabling this plugin against the same remote. Settings containing credentials are ignored by Git.
+
+The fork has its own plugin ID, protocol handlers, settings and database. On first load it copies this vault's sync baseline from the original database in the same Obsidian environment, preserving deletion detection. A settings file alone does not transfer that history to another device. S3 settings work unchanged; OAuth services need application registrations for the fork's callback URIs.
+
+Original sync direction, conflict handling, path filters and bulk deletion protection remain in effect. Upstream documentation and license notices follow; see `LICENSE` for the Apache 2.0 and PolyForm Strict licenses applicable to different directories.
+
+---
+
+## Remotely Save upstream documentation
 
 English | [中文](./README.zh-cn.md)
 

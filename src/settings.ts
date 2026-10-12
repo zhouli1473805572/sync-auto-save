@@ -32,6 +32,7 @@ import { generateProSettingsPart } from "../pro/src/settingsPro";
 import { generateYandexDiskSettingsPart } from "../pro/src/settingsYandexDisk";
 import { API_VER_ENSURE_REQURL_OK, VALID_REQURL } from "./baseTypesObs";
 import { messyConfigToNormal } from "./configPersist";
+import { generateAutoSyncSettings } from "./autoSyncSettings";
 import {
   exportVaultProfilerResultsToFiles,
   exportVaultSyncPlansToFiles,
@@ -2149,26 +2150,7 @@ export class RemotelySaveSettingTab extends PluginSettingTab {
           });
       });
 
-    new Setting(basicDiv)
-      .setName(t("settings_synconsave"))
-      .setDesc(t("settings_synconsave_desc"))
-      .addDropdown((dropdown) => {
-        dropdown.addOption("-1", t("settings_synconsave_disable"));
-        dropdown.addOption("1000", t("settings_synconsave_enable"));
-        // for backward compatibility, we need to use a number representing seconds
-        let syncOnSaveEnabled = false;
-        if ((this.plugin.settings.syncOnSaveAfterMilliseconds ?? -1) > 0) {
-          syncOnSaveEnabled = true;
-        }
-        dropdown
-          .setValue(`${syncOnSaveEnabled ? "1000" : "-1"}`)
-          .onChange(async (val: string) => {
-            this.plugin.settings.syncOnSaveAfterMilliseconds =
-              Number.parseInt(val);
-            await this.plugin.saveSettings();
-            this.plugin.toggleSyncOnSaveIfSet();
-          });
-      });
+    generateAutoSyncSettings(basicDiv, this.plugin, t);
 
     new Setting(basicDiv)
       .setName(t("settings_skiplargefiles"))
@@ -2694,7 +2676,7 @@ export class RemotelySaveSettingTab extends PluginSettingTab {
       .setDesc(t("settings_import_desc"))
       .addText((text) =>
         text
-          .setPlaceholder("obsidian://remotely-save?func=settings&...")
+          .setPlaceholder("obsidian://sync-auto-save?func=settings&...")
           .setValue("")
           .onChange((val) => {
             importSettingVal = val;
