@@ -11,20 +11,6 @@ An Obsidian plugin with automatic deletion sync and configurable sync timing aft
 
 Based on [Remotely Save](https://github.com/remotely-save/remotely-save) 0.5.25, originally created by [fyears](https://github.com/fyears). Thanks to the original author and upstream contributors for the sync implementation.
 
-This fork is maintained at [zhouli1473805572/sync-auto-save](https://github.com/zhouli1473805572/sync-auto-save).
-
-## Download and install
-
-Download `main.js`, `manifest.json`, and `styles.css` from this fork's [Releases](https://github.com/zhouli1473805572/sync-auto-save/releases). Release tags match the manifest version exactly, for example `0.1.0`, without a `v` prefix.
-
-Build with `npm ci`, `npm test`, and `npm run build`. Install `main.js`, `manifest.json`, and `styles.css` in `.obsidian/plugins/sync-auto-save/`, and copy the old `data.json` there to reuse settings. Disable Remotely Save before enabling this plugin against the same remote. Settings containing credentials are ignored by Git.
-
-The fork has its own plugin ID, protocol handlers, settings and database. On first load it copies this vault's sync baseline from the original database in the same Obsidian environment, preserving deletion detection. A settings file alone does not transfer that history to another device. S3 settings work unchanged; OAuth services need application registrations for the fork's callback URIs.
-
-Original sync direction, conflict handling, path filters and bulk deletion protection remain in effect. Upstream documentation and license notices follow; see `LICENSE` for the Apache 2.0 and PolyForm Strict licenses applicable to different directories.
-
-To sync empty folders with S3 or Cloudflare R2, enable "Generate Folder Object" in the plugin's S3 settings. This is a local plugin setting; no R2 server configuration change is required.
-
 ---
 
 ## Remotely Save upstream documentation
