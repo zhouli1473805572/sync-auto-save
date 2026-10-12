@@ -5,6 +5,16 @@ import { parse } from "acorn";
 const manifest = JSON.parse(readFileSync("manifest.json", "utf8"));
 const pkg = JSON.parse(readFileSync("package.json", "utf8"));
 const versions = JSON.parse(readFileSync("versions.json", "utf8"));
+const lock = JSON.parse(readFileSync("package-lock.json", "utf8"));
+for (const dependency of Object.values(lock.packages)) {
+  if (dependency.resolved) {
+    assert.equal(
+      new URL(dependency.resolved).hostname,
+      "registry.npmjs.org",
+      "Locked downloads must use the official npm registry for source review"
+    );
+  }
+}
 assert.equal(
   manifest.version,
   pkg.version,
