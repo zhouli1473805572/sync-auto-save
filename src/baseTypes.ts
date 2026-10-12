@@ -165,7 +165,9 @@ export interface RemotelySavePluginSettings {
   autoRunEveryMilliseconds?: number;
   initRunAfterMilliseconds?: number;
   syncOnSaveAfterMilliseconds?: number;
+  /** @deprecated Replaced by the single syncOnSaveMinIntervalMilliseconds setting. */
   syncOnSaveDelayMilliseconds?: number;
+  /** Quiet period after the last vault change; retained name for saved-settings compatibility. */
   syncOnSaveMinIntervalMilliseconds?: number;
 
   concurrency?: number;

@@ -121,7 +121,7 @@ describe("Automatic sync on vault changes", () => {
   for (const event of ["delete", "rename", "create", "modify"]) {
     it(`syncs on ${event} even without an active file`, async () => {
       vault.trigger(event, { path: "other-note.md", stat: { mtime: 1 } });
-      await clock.advance(2999);
+      await clock.advance(9999);
       assert.equal(syncs, 0);
       await clock.advance(1);
       assert.equal(syncs, 1);
@@ -130,37 +130,36 @@ describe("Automatic sync on vault changes", () => {
     });
   }
 
-  it("coalesces folder/child deletions and waits after the latest event", async () => {
+  it("coalesces folder/child deletions and waits after the last event", async () => {
     vault.trigger("delete", { path: "folder/a.md" });
     await clock.advance(500);
     vault.trigger("delete", { path: "folder/b.md" });
     vault.trigger("delete", { path: "folder", children: [] });
-    await clock.advance(2999);
+    await clock.advance(9999);
     assert.equal(syncs, 0);
     await clock.advance(1);
     assert.equal(syncs, 1);
   });
 
-  it("groups changes until the minimum interval after the previous sync ends", async () => {
+  it("groups changes until the quiet interval after the latest change", async () => {
     vault.trigger("modify", { path: "note.md" });
-    await clock.advance(3000);
+    await clock.advance(10000);
     assert.equal(syncs, 1);
     vault.trigger("modify", { path: "note.md" });
     await clock.advance(3000);
     assert.equal(syncs, 1);
     vault.trigger("delete", { path: "other.md" });
-    await clock.advance(6999);
+    await clock.advance(9999);
     assert.equal(syncs, 1);
     await clock.advance(1);
     assert.equal(syncs, 2);
   });
 
-  it("uses the configured delay and interval", async () => {
-    plugin.settings.syncOnSaveDelayMilliseconds = 5000;
+  it("uses the configured single throttle interval", async () => {
     plugin.settings.syncOnSaveMinIntervalMilliseconds = 60000;
     plugin.updateSyncOnSaveTiming();
     vault.trigger("modify", { path: "note.md" });
-    await clock.advance(4999);
+    await clock.advance(59999);
     assert.equal(syncs, 0);
     await clock.advance(1);
     assert.equal(syncs, 1);
@@ -171,11 +170,10 @@ describe("Automatic sync on vault changes", () => {
     assert.equal(syncs, 2);
   });
 
-  it("retains pending deletion and cooldown when timing changes", async () => {
+  it("retains pending deletion when timing changes", async () => {
     vault.trigger("modify", { path: "note.md" });
-    await clock.advance(3000);
+    await clock.advance(10000);
     vault.trigger("delete", { path: "other.md" });
-    plugin.settings.syncOnSaveDelayMilliseconds = 5000;
     plugin.settings.syncOnSaveMinIntervalMilliseconds = 20000;
     plugin.updateSyncOnSaveTiming();
     await clock.advance(19999);
@@ -184,27 +182,27 @@ describe("Automatic sync on vault changes", () => {
     assert.equal(syncs, 2);
   });
 
-  it("bounds waiting during continuous edits", async () => {
+  it("waits for a full quiet interval even after prolonged editing", async () => {
     vault.trigger("modify", { path: "note.md" });
-    for (let n = 0; n < 14; n++) {
+    for (let n = 0; n < 30; n++) {
       await clock.advance(2000);
       vault.trigger("modify", { path: "note.md" });
       assert.equal(syncs, 0);
     }
-    await clock.advance(1999);
+    await clock.advance(9999);
     assert.equal(syncs, 0);
     await clock.advance(1);
     assert.equal(syncs, 1);
   });
 
-  it("queues deletion during a manual sync until completion", async () => {
+  it("resumes after a manual sync using the remaining quiet interval", async () => {
     plugin.isSyncing = true;
     vault.trigger("delete", { path: "deleted.md" });
     await clock.advance(3000);
     assert.equal(syncs, 0);
     plugin.isSyncing = false;
     plugin.syncEvent.trigger("SYNC_DONE");
-    await clock.advance(9999);
+    await clock.advance(6999);
     assert.equal(syncs, 0);
     await clock.advance(1);
     assert.equal(syncs, 1);
@@ -220,13 +218,13 @@ describe("Automatic sync on vault changes", () => {
         });
     };
     vault.trigger("modify", { path: "edited.md" });
-    await clock.advance(3000);
+    await clock.advance(10000);
     vault.trigger("delete", { path: "deleted.md" });
     await clock.advance(1000);
     assert.equal(syncs, 1, "syncs must never overlap");
     finish();
     await clock.advance(0);
-    await clock.advance(9999);
+    await clock.advance(8999);
     assert.equal(syncs, 1);
     await clock.advance(1);
     assert.equal(syncs, 2);
@@ -234,18 +232,34 @@ describe("Automatic sync on vault changes", () => {
     assert.equal(syncs, 2);
   });
 
+  it("restarts the countdown when another file changes near the deadline", async () => {
+    vault.trigger("modify", { path: "first.md" });
+    await clock.advance(9000);
+    vault.trigger("modify", { path: "second.md" });
+    await clock.advance(1000);
+    assert.equal(
+      syncs,
+      0,
+      "the first modification's deadline must be cancelled"
+    );
+    await clock.advance(8999);
+    assert.equal(syncs, 0);
+    await clock.advance(1);
+    assert.equal(syncs, 1);
+  });
+
   it("cancels queued work when disabled and registers only once on re-enable", async () => {
     vault.trigger("delete", { path: "deleted.md" });
     plugin.settings.syncOnSaveAfterMilliseconds = -1;
     plugin.toggleSyncOnSaveIfSet();
-    await clock.advance(3000);
+    await clock.advance(10000);
     assert.equal(syncs, 0);
     plugin.settings.syncOnSaveAfterMilliseconds = 1000;
     plugin.toggleSyncOnSaveIfSet();
     plugin.toggleSyncOnSaveIfSet();
     assert.equal(vault.listeners.get("delete")!.size, 1);
     vault.trigger("delete", { path: "another.md" });
-    await clock.advance(3000);
+    await clock.advance(10000);
     assert.equal(syncs, 1);
   });
 
@@ -263,7 +277,7 @@ describe("Automatic sync on vault changes", () => {
   it("cancels the timer when the plugin is unloaded", async () => {
     vault.trigger("delete", { path: "deleted.md" });
     await plugin.onunload();
-    await clock.advance(3000);
+    await clock.advance(10000);
     assert.equal(syncs, 0);
     assert.equal(clock.tasks.size, 0);
   });
@@ -271,8 +285,7 @@ describe("Automatic sync on vault changes", () => {
   it("reports rejection and allows a later change to sync", async () => {
     const errors: unknown[] = [];
     const scheduler = new AutoSyncScheduler({
-      delay: 1000,
-      minInterval: 10000,
+      interval: 1000,
       isSyncing: () => false,
       sync: async () => {
         if (++syncs === 1) throw Error("network failure");
@@ -283,7 +296,7 @@ describe("Automatic sync on vault changes", () => {
     await clock.advance(1000);
     assert.equal(errors.length, 1);
     scheduler.notifyChange();
-    await clock.advance(9999);
+    await clock.advance(999);
     assert.equal(syncs, 1);
     await clock.advance(1);
     assert.equal(syncs, 2);

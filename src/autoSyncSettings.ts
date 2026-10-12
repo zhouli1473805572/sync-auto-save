@@ -28,49 +28,32 @@ export const generateAutoSyncSettings = (
   timingDiv.toggle(isEnabled());
 
   const timing = getAutoSyncTiming(plugin.settings);
-  const fields = [
-    {
-      key: "syncOnSaveDelayMilliseconds",
-      name: "settings_synconsave_delay",
-      desc: "settings_synconsave_delay_desc",
-      value: timing.delay,
-    },
-    {
-      key: "syncOnSaveMinIntervalMilliseconds",
-      name: "settings_synconsave_interval",
-      desc: "settings_synconsave_interval_desc",
-      value: timing.minInterval,
-    },
-  ] as const;
-  for (const field of fields) {
-    new Setting(timingDiv)
-      .setName(t(field.name))
-      .setDesc(t(field.desc))
-      .addText((text) => {
-        text.inputEl.type = "number";
-        text.inputEl.min = "1";
-        text.inputEl.max = "3600";
-        text.inputEl.step = "1";
-        text.setValue(`${field.value / 1000}`).onChange(async (value) => {
-          const seconds = Number(value);
-          if (
-            !/^\d+$/.test(value) ||
-            !Number.isInteger(seconds) ||
-            seconds < 1 ||
-            seconds > 3600
-          ) {
-            text.inputEl.setCustomValidity(
-              t("settings_synconsave_seconds_invalid")
-            );
-            return;
-          }
-          text.inputEl.setCustomValidity("");
-          plugin.settings[field.key] = seconds * 1000;
-          // Update the current queue in place: changing timing must not lose a
-          // pending deletion or reset the last sync's cooldown.
-          plugin.updateSyncOnSaveTiming();
-          await plugin.saveSettings();
-        });
+  new Setting(timingDiv)
+    .setName(t("settings_synconsave_interval"))
+    .setDesc(t("settings_synconsave_interval_desc"))
+    .addText((text) => {
+      text.inputEl.type = "number";
+      text.inputEl.min = "1";
+      text.inputEl.max = "3600";
+      text.inputEl.step = "1";
+      text.setValue(`${timing.interval / 1000}`).onChange(async (value) => {
+        const seconds = Number(value);
+        if (
+          !/^\d+$/.test(value) ||
+          !Number.isInteger(seconds) ||
+          seconds < 1 ||
+          seconds > 3600
+        ) {
+          text.inputEl.setCustomValidity(
+            t("settings_synconsave_seconds_invalid")
+          );
+          return;
+        }
+        text.inputEl.setCustomValidity("");
+        plugin.settings.syncOnSaveMinIntervalMilliseconds = seconds * 1000;
+        // Preserve pending changes and their last modification time.
+        plugin.updateSyncOnSaveTiming();
+        await plugin.saveSettings();
       });
-  }
+    });
 };

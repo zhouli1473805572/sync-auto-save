@@ -128,15 +128,17 @@ describe("Configurable automatic sync settings", () => {
     assert.equal(timingDiv.hidden, true);
   });
 
-  it("saves seconds as milliseconds and displays them again after reloading", async () => {
+  it("shows one interval and persists its value after reloading", async () => {
     await controls[0].change("1000");
-    assert.equal(controls[1].inputEl.value, "3");
-    assert.equal(controls[2].inputEl.value, "10");
-    await controls[1].change("5");
-    await controls[2].change("60");
-    assert.equal(saved.syncOnSaveDelayMilliseconds, 5000);
+    assert.equal(
+      controls.length,
+      2,
+      "one enable dropdown and one timing field"
+    );
+    assert.equal(controls[1].inputEl.value, "10");
+    await controls[1].change("60");
     assert.equal(saved.syncOnSaveMinIntervalMilliseconds, 60000);
-    assert.equal(updated, 2);
+    assert.equal(updated, 1);
     assert.equal(
       toggled,
       1,
@@ -144,33 +146,28 @@ describe("Configurable automatic sync settings", () => {
     );
     plugin.settings = saved;
     render();
-    assert.equal(controls[1].inputEl.value, "5");
-    assert.equal(controls[2].inputEl.value, "60");
+    assert.equal(controls[1].inputEl.value, "60");
   });
 
   it("rejects invalid values without changing saved timing", async () => {
     await controls[1].change("5");
     for (const value of ["", "0", "-1", "1.5", "NaN", "Infinity", "3601"]) {
       await controls[1].change(value);
-      assert.equal(saved.syncOnSaveDelayMilliseconds, 5000);
+      assert.equal(saved.syncOnSaveMinIntervalMilliseconds, 5000);
       assert.equal(controls[1].inputEl.validity.customError, true);
     }
     await controls[1].change("10");
-    assert.equal(saved.syncOnSaveDelayMilliseconds, 10000);
+    assert.equal(saved.syncOnSaveMinIntervalMilliseconds, 10000);
     assert.equal(controls[1].inputEl.validity.customError, false);
   });
 
-  it("uses safe defaults for malformed stored timing and respects long delays", () => {
+  it("uses safe defaults and ignores the removed legacy delay", () => {
     const settings = {
-      syncOnSaveDelayMilliseconds: NaN,
+      syncOnSaveDelayMilliseconds: 60000,
       syncOnSaveMinIntervalMilliseconds: -1,
     } as RemotelySavePluginSettings;
-    assert.deepEqual(getAutoSyncTiming(settings), {
-      delay: 3000,
-      minInterval: 10000,
-      maxWait: 30000,
-    });
-    settings.syncOnSaveDelayMilliseconds = 60000;
-    assert.equal(getAutoSyncTiming(settings).maxWait, 60000);
+    assert.deepEqual(getAutoSyncTiming(settings), { interval: 10000 });
+    settings.syncOnSaveMinIntervalMilliseconds = 60000;
+    assert.equal(getAutoSyncTiming(settings).interval, 60000);
   });
 });

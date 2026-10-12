@@ -8,18 +8,13 @@ export const getAutoSyncTiming = (settings: RemotelySavePluginSettings) => {
     value <= 3600000
       ? value
       : fallback;
-  const delay = valid(settings.syncOnSaveDelayMilliseconds, 3000);
   return {
-    delay,
-    minInterval: valid(settings.syncOnSaveMinIntervalMilliseconds, 10000),
-    maxWait: Math.max(30000, delay),
+    interval: valid(settings.syncOnSaveMinIntervalMilliseconds, 10000),
   };
 };
 
 interface AutoSyncOptions {
-  delay: number;
-  minInterval?: number;
-  maxWait?: number;
+  interval: number;
   isSyncing: () => boolean;
   sync: () => Promise<void>;
   onError: (error: unknown) => void;
@@ -32,30 +27,23 @@ export class AutoSyncScheduler {
   private pending = false;
   private running = false;
   private disposed = false;
-  private firstChangeAt = 0;
   private lastChangeAt = 0;
-  private lastSyncCompletedAt = Number.NEGATIVE_INFINITY;
 
   constructor(private readonly options: AutoSyncOptions) {}
 
-  updateTiming(
-    timing: Pick<AutoSyncOptions, "delay" | "minInterval" | "maxWait">
-  ) {
+  updateTiming(timing: Pick<AutoSyncOptions, "interval">) {
     Object.assign(this.options, timing);
     if (this.pending) this.schedule();
   }
 
   notifyChange() {
     if (this.disposed) return;
-    const now = Date.now();
-    if (!this.pending) this.firstChangeAt = now;
-    this.lastChangeAt = now;
+    this.lastChangeAt = Date.now();
     this.pending = true;
     this.schedule();
   }
 
   notifySyncDone() {
-    this.lastSyncCompletedAt = Date.now();
     if (this.pending && !this.running && !this.disposed) this.schedule();
   }
 
@@ -77,14 +65,9 @@ export class AutoSyncScheduler {
       this.options.isSyncing()
     )
       return;
-    const changeDueAt = Math.min(
-      this.lastChangeAt + this.options.delay,
-      this.firstChangeAt + (this.options.maxWait ?? Number.POSITIVE_INFINITY)
-    );
-    const dueAt = Math.max(
-      changeDueAt,
-      this.lastSyncCompletedAt + (this.options.minInterval ?? 0)
-    );
+    // Debounce: every vault change restarts the quiet period. Continuous
+    // editing must never trigger a run just because an earlier timer expired.
+    const dueAt = this.lastChangeAt + this.options.interval;
     this.timer = setTimeout(
       () => {
         this.timer = undefined;
@@ -106,9 +89,6 @@ export class AutoSyncScheduler {
       this.options.onError(error);
     } finally {
       this.running = false;
-      // Cool down after completion, including failure; a long sync should not
-      // immediately be followed by another automatic run.
-      this.lastSyncCompletedAt = Date.now();
       if (this.pending && !this.disposed && !this.options.isSyncing()) {
         this.schedule();
       }

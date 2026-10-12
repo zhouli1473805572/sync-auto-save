@@ -1,7 +1,7 @@
 {
   "name": "sync-auto-save",
   "version": "0.1.0",
-  "description": "Automatic Obsidian sync on create, modify, delete and rename, based on Remotely Save.",
+  "description": "Obsidian deletion sync and configurable sync timing after saving (default: 10s), based on Remotely Save by fyears.",
   "scripts": {
     "dev2": "node esbuild.config.mjs --watch",
     "build2": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",

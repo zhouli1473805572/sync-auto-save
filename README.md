@@ -1,12 +1,29 @@
 # sync-auto-save
 
-An independent fork of Remotely Save 0.5.25. Automatic sync now responds to vault-wide create, modify, delete and rename events, even when no file is open. Enabling sync on changes reveals configurable wait and throttle intervals (defaults: 3 and 10 seconds; range: 1–3600 seconds). Timing changes apply immediately without dropping queued changes. Pending timers are cancelled when disabled or unloaded.
+An Obsidian plugin with automatic deletion sync and configurable sync timing after saving files.
+
+## Features
+
+1. **Automatic deletion sync:** deleting a file or folder triggers sync, with monitoring across the entire vault.
+2. **Configurable sync timing after saving:** wait before syncing saved file changes, with a default of **10 seconds**. Every change restarts the countdown. Sync begins after the full configured time passes without further changes, combining those changes into one run.
+
+## Project origin
+
+Based on [Remotely Save](https://github.com/remotely-save/remotely-save) 0.5.25, originally created by [fyears](https://github.com/fyears). Thanks to the original author and upstream contributors for the sync implementation.
+
+This fork is maintained at [zhouli1473805572/sync-auto-save](https://github.com/zhouli1473805572/sync-auto-save).
+
+## Download and install
+
+Download `main.js`, `manifest.json`, and `styles.css` from this fork's [Releases](https://github.com/zhouli1473805572/sync-auto-save/releases). Release tags match the manifest version exactly, for example `0.1.0`, without a `v` prefix.
 
 Build with `npm ci`, `npm test`, and `npm run build`. Install `main.js`, `manifest.json`, and `styles.css` in `.obsidian/plugins/sync-auto-save/`, and copy the old `data.json` there to reuse settings. Disable Remotely Save before enabling this plugin against the same remote. Settings containing credentials are ignored by Git.
 
 The fork has its own plugin ID, protocol handlers, settings and database. On first load it copies this vault's sync baseline from the original database in the same Obsidian environment, preserving deletion detection. A settings file alone does not transfer that history to another device. S3 settings work unchanged; OAuth services need application registrations for the fork's callback URIs.
 
 Original sync direction, conflict handling, path filters and bulk deletion protection remain in effect. Upstream documentation and license notices follow; see `LICENSE` for the Apache 2.0 and PolyForm Strict licenses applicable to different directories.
+
+To sync empty folders with S3 or Cloudflare R2, enable "Generate Folder Object" in the plugin's S3 settings. This is a local plugin setting; no R2 server configuration change is required.
 
 ---
 
