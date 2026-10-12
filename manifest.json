@@ -1,8 +1,8 @@
 {
   "id": "sync-auto-save",
   "name": "sync-auto-save",
-  "version": "0.1.0",
-  "minAppVersion": "0.13.21",
+  "version": "0.1.1",
+  "minAppVersion": "1.5.7",
   "description": "Automatic file deletion sync and configurable sync timing after saving (default: 10s). Based on Remotely Save by fyears.",
   "author": "zhoul (based on Remotely Save by fyears)",
   "isDesktopOnly": false

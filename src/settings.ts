@@ -1,4 +1,3 @@
-import { Eye, EyeOff, createElement } from "lucide";
 import {
   type App,
   Modal,
@@ -7,6 +6,7 @@ import {
   PluginSettingTab,
   Setting,
   requireApiVersion,
+  setIcon,
 } from "obsidian";
 import type { TextComponent } from "obsidian";
 import type {
@@ -398,22 +398,10 @@ class DropboxAuthModal extends Modal {
       return this.plugin.i18n.t(x, vars);
     };
 
-    let needManualPatse = false;
-    const userAgent = window.navigator.userAgent.toLocaleLowerCase() || "";
     // some users report that,
     // the Linux would open another instance Obsidian if jumping back,
     // so fallback to manual paste on Linux
-    if (
-      Platform.isDesktopApp &&
-      !Platform.isMacOS &&
-      (/linux/.test(userAgent) ||
-        /ubuntu/.test(userAgent) ||
-        /debian/.test(userAgent) ||
-        /fedora/.test(userAgent) ||
-        /centos/.test(userAgent))
-    ) {
-      needManualPatse = true;
-    }
+    const needManualPatse = Platform.isDesktopApp && Platform.isLinux;
 
     const { authUrl, verifier } = await getAuthUrlAndVerifierDropbox(
       this.plugin.settings.dropbox.clientID,
@@ -796,23 +784,14 @@ class ExportSettingsQrCodeModal extends Modal {
   }
 }
 
-const getEyesElements = () => {
-  const eyeEl = createElement(Eye);
-  const eyeOffEl = createElement(EyeOff);
-  return {
-    eye: eyeEl.outerHTML,
-    eyeOff: eyeOffEl.outerHTML,
-  };
-};
-
 export const wrapTextWithPasswordHide = (text: TextComponent) => {
-  const { eye, eyeOff } = getEyesElements();
-  const hider = text.inputEl.insertAdjacentElement("afterend", createSpan())!;
+  const hider = createSpan();
+  text.inputEl.insertAdjacentElement("afterend", hider);
   // the init type of hider is "hidden" === eyeOff === password
-  hider.innerHTML = eyeOff;
+  setIcon(hider, "eye-off");
   hider.addEventListener("click", (e) => {
     const isText = text.inputEl.getAttribute("type") === "text";
-    hider.innerHTML = isText ? eyeOff : eye;
+    setIcon(hider, isText ? "eye-off" : "eye");
     text.inputEl.setAttribute("type", isText ? "password" : "text");
     text.inputEl.focus();
   });
@@ -832,7 +811,7 @@ export class RemotelySaveSettingTab extends PluginSettingTab {
 
   display(): void {
     const { containerEl } = this;
-    containerEl.style.setProperty("overflow-wrap", "break-word");
+    containerEl.addClass("sync-auto-save-settings");
 
     containerEl.empty();
 
@@ -840,7 +819,7 @@ export class RemotelySaveSettingTab extends PluginSettingTab {
       return this.plugin.i18n.t(x, vars);
     };
 
-    containerEl.createEl("h1", { text: "Remotely Save" });
+    new Setting(containerEl).setName(this.plugin.manifest.name).setHeading();
 
     //////////////////////////////////////////////////
     // below for service chooser (part 1/2)
@@ -848,7 +827,9 @@ export class RemotelySaveSettingTab extends PluginSettingTab {
 
     // we need to create the div in advance of any other service divs
     const serviceChooserDiv = containerEl.createDiv();
-    serviceChooserDiv.createEl("h2", { text: t("settings_chooseservice") });
+    new Setting(serviceChooserDiv)
+      .setName(t("settings_chooseservice"))
+      .setHeading();
 
     //////////////////////////////////////////////////
     // below for s3
@@ -856,7 +837,7 @@ export class RemotelySaveSettingTab extends PluginSettingTab {
 
     const s3Div = containerEl.createEl("div", { cls: "s3-hide" });
     s3Div.toggleClass("s3-hide", this.plugin.settings.serviceType !== "s3");
-    s3Div.createEl("h2", { text: t("settings_s3") });
+    new Setting(s3Div).setName(t("settings_s3")).setHeading();
 
     const s3LongDescDiv = s3Div.createEl("div", { cls: "settings-long-desc" });
 
@@ -1157,7 +1138,7 @@ export class RemotelySaveSettingTab extends PluginSettingTab {
       "dropbox-hide",
       this.plugin.settings.serviceType !== "dropbox"
     );
-    dropboxDiv.createEl("h2", { text: t("settings_dropbox") });
+    new Setting(dropboxDiv).setName(t("settings_dropbox")).setHeading();
 
     const dropboxLongDescDiv = dropboxDiv.createEl("div", {
       cls: "settings-long-desc",
@@ -1337,7 +1318,7 @@ export class RemotelySaveSettingTab extends PluginSettingTab {
       "onedrive-hide",
       this.plugin.settings.serviceType !== "onedrive"
     );
-    onedriveDiv.createEl("h2", { text: t("settings_onedrive") });
+    new Setting(onedriveDiv).setName(t("settings_onedrive")).setHeading();
     const onedriveLongDescDiv = onedriveDiv.createEl("div", {
       cls: "settings-long-desc",
     });
@@ -1495,7 +1476,7 @@ export class RemotelySaveSettingTab extends PluginSettingTab {
       this.plugin.settings.serviceType !== "webdav"
     );
 
-    webdavDiv.createEl("h2", { text: t("settings_webdav") });
+    new Setting(webdavDiv).setName(t("settings_webdav")).setHeading();
 
     const webdavLongDescDiv = webdavDiv.createEl("div", {
       cls: "settings-long-desc",
@@ -1724,7 +1705,7 @@ export class RemotelySaveSettingTab extends PluginSettingTab {
       this.plugin.settings.serviceType !== "webdis"
     );
 
-    webdisDiv.createEl("h2", { text: t("settings_webdis") });
+    new Setting(webdisDiv).setName(t("settings_webdis")).setHeading();
 
     const webdisLongDescDiv = webdisDiv.createEl("div", {
       cls: "settings-long-desc",
@@ -2034,7 +2015,7 @@ export class RemotelySaveSettingTab extends PluginSettingTab {
     //////////////////////////////////////////////////
 
     const basicDiv = containerEl.createEl("div");
-    basicDiv.createEl("h2", { text: t("settings_basic") });
+    new Setting(basicDiv).setName(t("settings_basic")).setHeading();
 
     const passwordSetting = new Setting(basicDiv);
     const encryptionMethodSetting = new Setting(basicDiv);
@@ -2254,9 +2235,7 @@ export class RemotelySaveSettingTab extends PluginSettingTab {
     // below for advanced settings
     //////////////////////////////////////////////////
     const advDiv = containerEl.createEl("div");
-    advDiv.createEl("h2", {
-      text: t("settings_adv"),
-    });
+    new Setting(advDiv).setName(t("settings_adv")).setHeading();
 
     new Setting(advDiv)
       .setName(t("settings_concurrency"))
@@ -2554,9 +2533,9 @@ export class RemotelySaveSettingTab extends PluginSettingTab {
 
     // import and export
     const importExportDiv = containerEl.createEl("div");
-    importExportDiv.createEl("h2", {
-      text: t("settings_importexport"),
-    });
+    new Setting(importExportDiv)
+      .setName(t("settings_importexport"))
+      .setHeading();
 
     const importExportDivSetting1 = new Setting(importExportDiv)
       .setName(t("settings_export"))
@@ -2754,7 +2733,7 @@ export class RemotelySaveSettingTab extends PluginSettingTab {
     //////////////////////////////////////////////////
 
     const debugDiv = containerEl.createEl("div");
-    debugDiv.createEl("h2", { text: t("settings_debug") });
+    new Setting(debugDiv).setName(t("settings_debug")).setHeading();
 
     new Setting(debugDiv)
       .setName(t("settings_debuglevel"))

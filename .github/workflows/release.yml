@@ -60,9 +60,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
-      - run: npm install
+      - run: npm ci
+      - run: npm run lint:review
       - run: npm test
       - run: npm run build
+      - run: npm run check:release
       - name: Create Release And Upload
         uses: softprops/action-gh-release@v2
         with:

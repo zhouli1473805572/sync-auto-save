@@ -239,6 +239,15 @@
   display: none;
 }
 
+.sync-auto-save-settings {
+  overflow-wrap: break-word;
+}
+
+.is-mobile .status-bar.sync-auto-save-mobile-statusbar {
+  display: flex;
+  margin-bottom: var(--sync-auto-save-mobile-offset, 0px);
+}
+
 .pro-revoke-auth-button-hide {
   display: none;
 }

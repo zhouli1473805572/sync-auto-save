@@ -514,15 +514,15 @@ export const compareVersion = (x: string | null, y: string | null) => {
 };
 
 /**
- * https://stackoverflow.com/questions/19929641/how-to-append-an-html-string-to-a-documentfragment
- * To introduce some advanced html fragments.
- * @param string
+ * Render translated HTML through Obsidian's sanitizer. Resolve the host API
+ * only here so generic helpers can also be used in workers and Node tests.
+ * @param html
  * @returns
  */
-export const stringToFragment = (string: string) => {
-  const wrapper = document.createElement("template");
-  wrapper.innerHTML = string;
-  return wrapper.content;
+export const stringToFragment = (html: string): DocumentFragment => {
+  const { sanitizeHTMLToDom } =
+    require("obsidian") as typeof import("obsidian");
+  return sanitizeHTMLToDom(html);
 };
 
 /**
@@ -575,8 +575,8 @@ export const changeMobileStatusBar = (
               .getComputedStyle(k as Element)
               .getPropertyValue("height");
 
-            statusbar.style.setProperty("display", "flex");
-            statusbar.style.setProperty("margin-bottom", height);
+            statusbar.addClass("sync-auto-save-mobile-statusbar");
+            statusbar.setCssProps({ "--sync-auto-save-mobile-offset": height });
           }
         }
       }
@@ -596,8 +596,8 @@ export const changeMobileStatusBar = (
       )[0] as HTMLElement;
       // thanks to community's solution
       const height = window.getComputedStyle(navBar).getPropertyValue("height");
-      statusbar.style.setProperty("display", "flex");
-      statusbar.style.setProperty("margin-bottom", height);
+      statusbar.addClass("sync-auto-save-mobile-statusbar");
+      statusbar.setCssProps({ "--sync-auto-save-mobile-offset": height });
     } catch (e) {
       // skip
     }
@@ -610,8 +610,8 @@ export const changeMobileStatusBar = (
       // biome-ignore lint/style/noParameterAssign: we want gc
       oldAppContainerObserver = undefined;
     }
-    statusbar.style.removeProperty("display");
-    statusbar.style.removeProperty("margin-bottom");
+    statusbar.removeClass("sync-auto-save-mobile-statusbar");
+    statusbar.setCssProps({ "--sync-auto-save-mobile-offset": "" });
     return undefined;
   }
 };

@@ -96,6 +96,14 @@ module.exports = {
     ],
   },
   resolve: {
+    // Obsidian has native Promises. The standard bundle embeds an old IE
+    // scheduler that creates script tags; use localForage's official build
+    // without that legacy Promise polyfill.
+    alias: {
+      localforage$: require.resolve(
+        "localforage/dist/localforage.nopromises.js"
+      ),
+    },
     extensions: [".tsx", ".ts", ".js"],
     mainFields: ["browser", "module", "main"],
     fallback: {

@@ -42,6 +42,9 @@ esbuild
     },
     entryPoints: ["./src/main.ts"],
     bundle: true,
+    alias: {
+      localforage: "localforage/dist/localforage.nopromises.js",
+    },
     external: [
       "obsidian",
       "electron",
