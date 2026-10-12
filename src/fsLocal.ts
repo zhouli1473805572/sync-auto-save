@@ -2,7 +2,8 @@ import { DEFAULT_DEBUG_FOLDER, type Entity } from "./baseTypes";
 import { FakeFs } from "./fsAll";
 
 import { TFile, TFolder, type Vault } from "obsidian";
-import { mkdirpInVault, statFix, unixTimeToStr } from "./misc";
+import { getFolderLevels, statFix, unixTimeToStr } from "./misc";
+import type { LocalSyncChanges } from "./localSyncChanges";
 import { listFilesInObsFolder } from "./obsFolderLister";
 import type { Profiler } from "./profiler";
 
@@ -22,7 +23,8 @@ export class FakeFsLocal extends FakeFs {
     configDir: string,
     pluginID: string,
     profiler: Profiler | undefined,
-    deleteToWhere: "obsidian" | "system"
+    deleteToWhere: "obsidian" | "system",
+    private readonly localChanges?: LocalSyncChanges
   ) {
     super();
 
@@ -146,7 +148,16 @@ export class FakeFsLocal extends FakeFs {
 
   async mkdir(key: string, mtime?: number, ctime?: number): Promise<Entity> {
     // console.debug(`mkdir: ${key}`);
-    await mkdirpInVault(key, this.vault);
+    for (const folder of getFolderLevels(key)) {
+      if (await this.vault.adapter.exists(folder)) continue;
+      const cancel = this.localChanges?.expectFolder(folder);
+      try {
+        await this.vault.adapter.mkdir(folder);
+      } catch (error) {
+        cancel?.();
+        throw error;
+      }
+    }
     return await this.stat(key);
   }
 
@@ -156,10 +167,16 @@ export class FakeFsLocal extends FakeFs {
     mtime: number,
     ctime: number
   ): Promise<Entity> {
-    await this.vault.adapter.writeBinary(key, content, {
-      mtime: mtime,
-      ctime: ctime,
-    });
+    const cancel = this.localChanges?.expectWrite(key, content);
+    try {
+      await this.vault.adapter.writeBinary(key, content, {
+        mtime: mtime,
+        ctime: ctime,
+      });
+    } catch (error) {
+      cancel?.();
+      throw error;
+    }
     return await this.stat(key);
   }
 
@@ -168,17 +185,44 @@ export class FakeFsLocal extends FakeFs {
   }
 
   async rename(key1: string, key2: string): Promise<void> {
-    return await this.vault.adapter.rename(key1, key2);
+    const source = await this.vault.adapter.stat(key1);
+    const cancelNew =
+      source?.type === "folder"
+        ? this.localChanges?.expectFolder(key2, key1.replace(/\/$/, ""))
+        : this.localChanges?.expectWrite(
+            key2,
+            await this.readFile(key1),
+            key1.replace(/\/$/, "")
+          );
+    const cancelOld = this.localChanges?.expectDelete([key1]);
+    try {
+      await this.vault.adapter.rename(key1, key2);
+    } catch (error) {
+      cancelNew?.();
+      cancelOld?.();
+      throw error;
+    }
   }
 
   async rm(key: string): Promise<void> {
-    if (this.deleteToWhere === "obsidian") {
-      await this.vault.adapter.trashLocal(key);
-    } else {
-      // "system"
-      if (!(await this.vault.adapter.trashSystem(key))) {
+    const root = key.replace(/\/$/, "");
+    const paths = this.vault
+      .getAllLoadedFiles()
+      .filter((file) => file.path.startsWith(`${root}/`))
+      .map((file) => file.path);
+    const cancel = this.localChanges?.expectDelete([root, ...paths]);
+    try {
+      if (this.deleteToWhere === "obsidian") {
         await this.vault.adapter.trashLocal(key);
+      } else {
+        // "system"
+        if (!(await this.vault.adapter.trashSystem(key))) {
+          await this.vault.adapter.trashLocal(key);
+        }
       }
+    } catch (error) {
+      cancel?.();
+      throw error;
     }
   }
   async checkConnect(callbackFunc?: any): Promise<boolean> {

@@ -4,12 +4,14 @@ import cloneDeep from "lodash/cloneDeep";
 import { FileText, RefreshCcw, RotateCcw, createElement } from "lucide";
 import {
   Events,
+  type EventRef,
   FileSystemAdapter,
   type Modal,
   Notice,
   Platform,
   Plugin,
   type Setting,
+  type TAbstractFile,
   TFolder,
   addIcon,
   requireApiVersion,
@@ -74,6 +76,7 @@ import {
 } from "./baseTypes";
 import { API_VER_ENSURE_REQURL_OK } from "./baseTypesObs";
 import { AutoSyncScheduler, getAutoSyncTiming } from "./autoSyncScheduler";
+import { LocalSyncChanges, type VaultChange } from "./localSyncChanges";
 import { messyConfigToNormal, normalConfigToMessy } from "./configPersist";
 import { exportVaultSyncPlansToFiles } from "./debugMode";
 import {
@@ -219,6 +222,8 @@ export default class RemotelySavePlugin extends Plugin {
   db!: InternalDBs;
   isSyncing!: boolean;
   private autoSyncScheduler?: AutoSyncScheduler;
+  private localSyncChanges = new LocalSyncChanges();
+  private vaultChangeEventRefs: EventRef[] = [];
   statusBarElement!: HTMLSpanElement;
   oauth2Info!: OAuth2Info;
   currLogLevel!: string;
@@ -248,7 +253,8 @@ export default class RemotelySavePlugin extends Plugin {
       this.app.vault.configDir,
       this.manifest.id,
       profiler,
-      this.settings.deleteToWhere ?? "system"
+      this.settings.deleteToWhere ?? "system",
+      this.localSyncChanges
     );
     const fsRemote = getClient(
       this.settings,
@@ -1320,6 +1326,7 @@ export default class RemotelySavePlugin extends Plugin {
     console.info(`unloading plugin ${this.manifest.id}`);
     this.autoSyncScheduler?.dispose();
     this.autoSyncScheduler = undefined;
+    this.localSyncChanges.clear();
     this.syncRibbon = undefined;
     if (this.appContainerObserver !== undefined) {
       this.appContainerObserver.disconnect();
@@ -1790,8 +1797,31 @@ export default class RemotelySavePlugin extends Plugin {
     this.autoSyncScheduler?.notifySyncDone();
   };
 
-  _syncOnSaveEvent2 = () => {
-    this.autoSyncScheduler?.notifyChange();
+  private handleVaultChange = (
+    event: VaultChange,
+    file: TAbstractFile,
+    oldPath?: string
+  ) => {
+    const scheduler = this.autoSyncScheduler;
+    if (!scheduler) return;
+    if (!this.localSyncChanges.hasExpected(file.path)) {
+      scheduler.notifyChange();
+      return;
+    }
+    return this.localSyncChanges
+      .shouldIgnore(event, file, oldPath, this.app.vault)
+      .then((ignore) => {
+        if (!ignore && this.autoSyncScheduler === scheduler)
+          scheduler.notifyChange();
+      });
+  };
+
+  private vaultChangeListeners = {
+    modify: (file: TAbstractFile) => this.handleVaultChange("modify", file),
+    create: (file: TAbstractFile) => this.handleVaultChange("create", file),
+    delete: (file: TAbstractFile) => this.handleVaultChange("delete", file),
+    rename: (file: TAbstractFile, oldPath: string) =>
+      this.handleVaultChange("rename", file, oldPath),
   };
 
   updateSyncOnSaveTiming() {
@@ -1804,10 +1834,8 @@ export default class RemotelySavePlugin extends Plugin {
     this.autoSyncScheduler?.dispose();
     this.autoSyncScheduler = undefined;
     this.syncEvent?.off("SYNC_DONE", this._syncOnSaveEvent1);
-    this.app.vault.off("modify", this._syncOnSaveEvent2);
-    this.app.vault.off("create", this._syncOnSaveEvent2);
-    this.app.vault.off("delete", this._syncOnSaveEvent2);
-    this.app.vault.off("rename", this._syncOnSaveEvent2);
+    this.vaultChangeEventRefs.forEach((ref) => this.app.vault.offref(ref));
+    this.vaultChangeEventRefs = [];
     if (
       this.settings.syncOnSaveAfterMilliseconds !== undefined &&
       this.settings.syncOnSaveAfterMilliseconds !== null &&
@@ -1829,10 +1857,13 @@ export default class RemotelySavePlugin extends Plugin {
         );
 
         // Listen to changes throughout the vault, including deleted files/folders.
-        this.registerEvent(this.app.vault.on("modify", this._syncOnSaveEvent2));
-        this.registerEvent(this.app.vault.on("create", this._syncOnSaveEvent2));
-        this.registerEvent(this.app.vault.on("delete", this._syncOnSaveEvent2));
-        this.registerEvent(this.app.vault.on("rename", this._syncOnSaveEvent2));
+        this.vaultChangeEventRefs = [
+          this.app.vault.on("modify", this.vaultChangeListeners.modify),
+          this.app.vault.on("create", this.vaultChangeListeners.create),
+          this.app.vault.on("delete", this.vaultChangeListeners.delete),
+          this.app.vault.on("rename", this.vaultChangeListeners.rename),
+        ];
+        this.vaultChangeEventRefs.forEach((ref) => this.registerEvent(ref));
       });
     }
   }
