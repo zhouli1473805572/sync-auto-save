@@ -1,6 +1,6 @@
 {
   "name": "sync-auto-save",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Obsidian deletion sync and configurable sync timing after saving (default: 10s), based on Remotely Save by fyears.",
   "scripts": {
     "lint:review": "eslint src pro/src",
